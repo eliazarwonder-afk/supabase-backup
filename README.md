@@ -20,4 +20,6 @@ Set `BACKUP_CRON` to a five-field cron expression and `CRON_TARGET_ID` to the ta
 
 Deploy this repository as a Docker Compose resource. Set the three required environment variables in Coolify, expose port `3000`, and attach HTTPS. For a Supabase database in another service, use its private network hostname in the PostgreSQL URL. Do not expose PostgreSQL publicly just for this app.
 
+Do not paste the bcrypt hash or other secrets into `docker-compose.yml`. The Compose file intentionally uses pass-through entries such as `- ADMIN_PASSWORD_HASH`; set the values in Coolify's Environment Variables section. This prevents `$2a$12$...` from being parsed as YAML or Compose interpolation.
+
 Restore requires the exact backup folder name and typing `RESTORE`. The server validates target names and folder names, serializes jobs to prevent overlapping operations, and executes child processes with argument arrays, never a shell command string. Use HTTPS in Coolify and never commit `.env` or `data/`.
