@@ -1,0 +1,8 @@
+{
+  "name": "supabase-vaultmanager",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Secure Supabase backup and restore manager",
+  "scripts": {"start":"node server.js","hash-password":"node scripts/hash-password.js"},
+  "engines": {"node": ">=20"}
+}
