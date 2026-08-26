@@ -5,7 +5,9 @@ ENV NODE_ENV=production PORT=3000 DATA_DIR=/var/lib/vaultmanager BACKUP_DIR=/var
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl postgresql-client tar awscli && rm -rf /var/lib/apt/lists/* \
     && curl -fsSL "https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_${SUPABASE_CLI_VERSION}_linux_${TARGETARCH}.tar.gz" -o /tmp/supabase.tgz \
     && curl -fsSL "https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/checksums.txt" -o /tmp/supabase.checksums \
-    && grep " supabase_${SUPABASE_CLI_VERSION}_linux_${TARGETARCH}.tar.gz$" /tmp/supabase.checksums | sha256sum -c - \
+    && EXPECTED_SHA256=$(awk -v file="supabase_${SUPABASE_CLI_VERSION}_linux_${TARGETARCH}.tar.gz" '$2 == file { print $1; exit }' /tmp/supabase.checksums) \
+    && test -n "$EXPECTED_SHA256" \
+    && echo "$EXPECTED_SHA256  /tmp/supabase.tgz" | sha256sum -c - \
     && tar -xzf /tmp/supabase.tgz -C /usr/local/bin supabase \
     && rm /tmp/supabase.tgz /tmp/supabase.checksums \
     && useradd --system --uid 10001 --create-home vault
