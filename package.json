@@ -4,6 +4,6 @@
   "private": true,
   "description": "Secure Supabase backup and restore manager",
   "scripts": {"start":"node server.js","hash-password":"node scripts/hash-password.js","hash-bcrypt":"node scripts/hash-bcrypt.js"},
-  "dependencies": {"bcryptjs":"^3.0.2"},
+  "dependencies": {"bcryptjs":"^3.0.2","pg":"^8.13.1"},
   "engines": {"node": ">=20"}
 }

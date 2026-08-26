@@ -1,7 +1,7 @@
 FROM node:22-bookworm-slim
 ARG SUPABASE_CLI_VERSION=2.115.0
 ARG TARGETARCH=amd64
-ENV NODE_ENV=production PORT=3000 DATA_DIR=/var/lib/vaultmanager BACKUP_DIR=/var/lib/vaultmanager/backups
+ENV NODE_ENV=production PORT=3000 SUPABASE_CLI_VERSION=${SUPABASE_CLI_VERSION} DATA_DIR=/var/lib/vaultmanager BACKUP_DIR=/var/lib/vaultmanager/backups
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl postgresql-client tar awscli && rm -rf /var/lib/apt/lists/* \
     && curl -fsSL "https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_${SUPABASE_CLI_VERSION}_linux_${TARGETARCH}.tar.gz" -o /tmp/supabase.tgz \
     && curl -fsSL "https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/checksums.txt" -o /tmp/supabase.checksums \
@@ -16,6 +16,9 @@ COPY --chown=vault:vault package.json server.js ./
 RUN npm install --omit=dev --ignore-scripts
 COPY --chown=vault:vault public ./public
 COPY --chown=vault:vault scripts ./scripts
+COPY --chown=vault:vault migrations ./migrations
+COPY --chown=vault:vault db.js ./db.js
+COPY --chown=vault:vault worker.js ./worker.js
 RUN mkdir -p /var/lib/vaultmanager/backups && chown -R vault:vault /var/lib/vaultmanager
 USER vault
 EXPOSE 3000

@@ -1,30 +1,55 @@
+# documentation: https://coolify.io/docs/knowledge-base/docker/compose
+# slogan: Secure Supabase database backup and restore control plane
+# category: Database
+# tags: supabase,postgresql,backup,restore
+# port: 3000
 services:
+  control-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: vaultmanager
+      POSTGRES_USER: vaultmanager
+      POSTGRES_PASSWORD: "${CONTROL_DB_PASSWORD:?set CONTROL_DB_PASSWORD}"
+    volumes:
+      - vaultmanager_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vaultmanager -d vaultmanager"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
   vaultmanager:
     build:
       context: .
       args:
         SUPABASE_CLI_VERSION: "2.115.0"
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     environment:
       PORT: "3000"
       NODE_ENV: "production"
       COOKIE_SECURE: "true"
-      ADMIN_USERNAME: "${ADMIN_USERNAME}"
-      ADMIN_PASSWORD_HASH_B64: "${ADMIN_PASSWORD_HASH_B64}"
-      APP_ENCRYPTION_KEY: "${APP_ENCRYPTION_KEY}"
+      ADMIN_USERNAME: "${ADMIN_USERNAME:?set ADMIN_USERNAME}"
+      ADMIN_PASSWORD_HASH_B64: "${ADMIN_PASSWORD_HASH_B64:?set ADMIN_PASSWORD_HASH_B64}"
+      APP_ENCRYPTION_KEY: "${APP_ENCRYPTION_KEY:?set APP_ENCRYPTION_KEY}"
+      DATABASE_URL: "postgresql://vaultmanager:${CONTROL_DB_PASSWORD:?set CONTROL_DB_PASSWORD}@control-db:5432/vaultmanager"
       BACKUP_STORAGE: "${BACKUP_STORAGE:-local}"
       BACKUP_CRON: "${BACKUP_CRON:-}"
       CRON_TARGET_ID: "${CRON_TARGET_ID:-}"
+      RETENTION_COUNT: "${RETENTION_COUNT:-0}"
       S3_BUCKET: "${S3_BUCKET:-}"
       S3_REGION: "${S3_REGION:-}"
       S3_PREFIX: "${S3_PREFIX:-vaultmanager}"
       AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
       AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
       AWS_SESSION_TOKEN: "${AWS_SESSION_TOKEN:-}"
+      NOTIFY_WEBHOOK_URL: "${NOTIFY_WEBHOOK_URL:-}"
     volumes:
       - vaultmanager_data:/var/lib/vaultmanager
+    depends_on:
+      control-db:
+        condition: service_healthy
     security_opt:
       - no-new-privileges:true
     cap_drop: [ALL]
@@ -36,5 +61,40 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+  vaultmanager-worker:
+    build:
+      context: .
+      args:
+        SUPABASE_CLI_VERSION: "2.115.0"
+    restart: unless-stopped
+    command: ["node", "worker.js"]
+    environment:
+      NODE_ENV: "production"
+      WORKER_ID: "vaultmanager-worker"
+      DATABASE_URL: "postgresql://vaultmanager:${CONTROL_DB_PASSWORD:?set CONTROL_DB_PASSWORD}@control-db:5432/vaultmanager"
+      APP_ENCRYPTION_KEY: "${APP_ENCRYPTION_KEY:?set APP_ENCRYPTION_KEY}"
+      BACKUP_STORAGE: "${BACKUP_STORAGE:-local}"
+      RETENTION_COUNT: "${RETENTION_COUNT:-0}"
+      S3_BUCKET: "${S3_BUCKET:-}"
+      S3_REGION: "${S3_REGION:-}"
+      S3_PREFIX: "${S3_PREFIX:-vaultmanager}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
+      AWS_SESSION_TOKEN: "${AWS_SESSION_TOKEN:-}"
+      NOTIFY_WEBHOOK_URL: "${NOTIFY_WEBHOOK_URL:-}"
+    volumes:
+      - vaultmanager_data:/var/lib/vaultmanager
+    depends_on:
+      control-db:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    read_only: true
+    healthcheck:
+      disable: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
 volumes:
   vaultmanager_data:
+  vaultmanager_db:
