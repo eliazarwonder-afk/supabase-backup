@@ -8,6 +8,8 @@ Secure Coolify-friendly UI for the official Supabase three-file backup flow.
 2. Copy `.env.example` to `.env`, set the hash and a random encryption key. For plain HTTP local development, add `COOKIE_SECURE=false` (production must use HTTPS).
 3. Start with `docker compose up --build` and open `http://localhost:3000`.
 
+If an older deployment used a `$`-separated password hash, regenerate it with the command above and replace the Coolify secret with the new colon-separated value. An unescaped `$` in a Compose `.env` value can be interpreted as variable interpolation.
+
 Connection strings are encrypted at rest with AES-256-GCM. They are never returned to the browser or logged. Backups are archived as `.tar.gz` files. Use `BACKUP_STORAGE=local` for the named `vaultmanager_data` volume, or `BACKUP_STORAGE=s3` with `S3_BUCKET`, `S3_REGION`, and AWS credentials for object storage. S3 downloads use 15-minute presigned URLs.
 
 ## Scheduled backups and history
