@@ -8,7 +8,7 @@ Secure Coolify-friendly UI for the official Supabase three-file backup flow.
 2. Copy `.env.example` to `.env`, set the hash and a random encryption key. For plain HTTP local development, add `COOKIE_SECURE=false` (production must use HTTPS).
 3. Start with `docker compose up --build` and open `http://localhost:3000`.
 
-The application accepts bcrypt hashes such as `$2a$12$...` and its own colon-separated scrypt hashes. The Compose file passes secrets through by name so `$` is not interpolated. If Coolify still logs a variable warning for part of a bcrypt hash, update the secret in Coolify and redeploy the latest commit; do not manually remove `$` characters.
+The application accepts bcrypt hashes such as `$2a$12$...` and its own colon-separated scrypt hashes. Set `ADMIN_PASSWORD_HASH_B64` to base64 of the complete hash so Compose never parses bcrypt's `$` characters. Example: `node -e "process.stdout.write(Buffer.from(process.argv[1]).toString('base64'))" '$2a$12$your-hash'`.
 
 Connection strings are encrypted at rest with AES-256-GCM. They are never returned to the browser or logged. Backups are archived as `.tar.gz` files. Use `BACKUP_STORAGE=local` for the named `vaultmanager_data` volume, or `BACKUP_STORAGE=s3` with `S3_BUCKET`, `S3_REGION`, and AWS credentials for object storage. S3 downloads use 15-minute presigned URLs.
 

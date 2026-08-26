@@ -14,7 +14,8 @@ const storageMode = (process.env.BACKUP_STORAGE || 'local').toLowerCase();
 const sessions = new Map(), jobs = new Map(), loginAttempts = new Map();
 let jobRunning = false;
 for (const dir of [DATA_DIR, BACKUP_DIR]) fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-for (const key of ['ADMIN_USERNAME', 'ADMIN_PASSWORD_HASH', 'APP_ENCRYPTION_KEY']) if (!process.env[key]) throw new Error(`${key} is required`);
+for (const key of ['ADMIN_USERNAME', 'APP_ENCRYPTION_KEY']) if (!process.env[key]) throw new Error(`${key} is required`);
+if (!process.env.ADMIN_PASSWORD_HASH && !process.env.ADMIN_PASSWORD_HASH_B64) throw new Error('ADMIN_PASSWORD_HASH_B64 is required');
 if (!['local', 's3'].includes(storageMode)) throw new Error('BACKUP_STORAGE must be local or s3');
 if (storageMode === 's3' && (!process.env.S3_BUCKET || !process.env.S3_REGION)) throw new Error('S3_BUCKET and S3_REGION are required for S3 storage');
 const encryptionKey = crypto.createHash('sha256').update(process.env.APP_ENCRYPTION_KEY).digest();
@@ -26,7 +27,7 @@ function history() { const h = readJson(path.join(DATA_DIR, 'history.json'), [])
 function saveHistory(entry) { const h = history().filter(x => x.id !== entry.id); h.push(entry); writeJson(path.join(DATA_DIR, 'history.json'), h.slice(-500)); }
 function encrypt(value) { const iv = crypto.randomBytes(12), c = crypto.createCipheriv('aes-256-gcm', encryptionKey, iv); const data = Buffer.concat([c.update(value, 'utf8'), c.final()]); return [iv, c.getAuthTag(), data].map(x => x.toString('base64')).join('.'); }
 function decrypt(value) { const [iv, tag, data] = value.split('.'), d = crypto.createDecipheriv('aes-256-gcm', encryptionKey, Buffer.from(iv, 'base64')); d.setAuthTag(Buffer.from(tag, 'base64')); return Buffer.concat([d.update(Buffer.from(data, 'base64')), d.final()]).toString('utf8'); }
-function verifyPassword(password) { const stored = String(process.env.ADMIN_PASSWORD_HASH); if (/^\$2[aby]?\$\d{2}\$/.test(stored)) return bcrypt.compareSync(password, stored); const separator = stored.includes(':') ? ':' : '$', [salt, digest] = stored.split(separator); if (!salt || !/^[a-f0-9]{128}$/i.test(digest)) return false; const actual = crypto.scryptSync(password, salt, 64).toString('hex'); return crypto.timingSafeEqual(Buffer.from(actual, 'hex'), Buffer.from(digest, 'hex')); }
+function verifyPassword(password) { const stored = process.env.ADMIN_PASSWORD_HASH_B64 ? Buffer.from(process.env.ADMIN_PASSWORD_HASH_B64, 'base64').toString('utf8') : String(process.env.ADMIN_PASSWORD_HASH); if (/^\$2[aby]?\$\d{2}\$/.test(stored)) return bcrypt.compareSync(password, stored); const separator = stored.includes(':') ? ':' : '$', [salt, digest] = stored.split(separator); if (!salt || !/^[a-f0-9]{128}$/i.test(digest)) return false; const actual = crypto.scryptSync(password, salt, 64).toString('hex'); return crypto.timingSafeEqual(Buffer.from(actual, 'hex'), Buffer.from(digest, 'hex')); }
 function parseCookies(req) { return Object.fromEntries((req.headers.cookie || '').split(';').filter(Boolean).map(x => { const i = x.indexOf('='); return [x.slice(0, i).trim(), decodeURIComponent(x.slice(i + 1))]; })); }
 function auth(req) { const token = parseCookies(req).vault_session, s = token && sessions.get(token); return s && s.expires > Date.now() ? { token, ...s } : null; }
 function send(res, status, value, headers = {}) { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers }); res.end(JSON.stringify(value)); }
