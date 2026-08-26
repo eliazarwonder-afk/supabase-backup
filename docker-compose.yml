@@ -3,7 +3,7 @@ services:
     build:
       context: .
       args:
-        SUPABASE_CLI_VERSION: "2.33.9"
+        SUPABASE_CLI_VERSION: "2.115.0"
     restart: unless-stopped
     ports:
       - "3000:3000"
