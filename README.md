@@ -4,13 +4,12 @@ Secure Coolify-friendly UI for the official Supabase three-file backup flow.
 
 ## Run locally
 
-1. Generate a password hash: `npm run hash-password -- "use-a-long-password"`.
-2. Copy `.env.example` to `.env`, set the hash and a random encryption key. For plain HTTP local development, add `COOKIE_SECURE=false` (production must use HTTPS).
+1. Copy `.env.example` to `.env`, set `ADMIN_USERNAME`, a strong `ADMIN_INITIAL_PASSWORD`, and a random encryption key. The initial password is converted to bcrypt and stored in the control database on first successful login; for legacy deployments, `ADMIN_PASSWORD_HASH_B64` remains supported. For plain HTTP local development, add `COOKIE_SECURE=false` (production must use HTTPS).
 3. Start with `docker compose up --build` and open `http://localhost:3000`.
 
 The Compose stack includes an independent PostgreSQL control database and a separate `vaultmanager-worker` service. Set `CONTROL_DB_PASSWORD` and do not point `DATABASE_URL` at a target Supabase database. The web service queues backup runs; the worker claims them from PostgreSQL and executes the Supabase CLI.
 
-The application accepts bcrypt hashes such as `$2a$12$...` and its own colon-separated scrypt hashes. Set `ADMIN_PASSWORD_HASH_B64` to base64 of the complete hash so Compose never parses bcrypt's `$` characters. Example: `node -e "process.stdout.write(Buffer.from(process.argv[1]).toString('base64'))" '$2a$12$your-hash'`.
+The application accepts bcrypt hashes such as `$2a$12$...` and its own colon-separated scrypt hashes. `ADMIN_PASSWORD_HASH_B64` is a legacy bootstrap option; normal deployments should use `ADMIN_INITIAL_PASSWORD`, then remove it from Coolify after the first successful login. Password changes are performed in the Security screen and stored as bcrypt hashes.
 
 Connection strings are encrypted at rest with AES-256-GCM. They are never returned to the browser or logged. Backups are archived as `.tar.gz` files. Use `BACKUP_STORAGE=local` for the named `vaultmanager_data` volume, or `BACKUP_STORAGE=s3` with `S3_BUCKET`, `S3_REGION`, and AWS credentials for object storage. S3 downloads use 15-minute presigned URLs.
 

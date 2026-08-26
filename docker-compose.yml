@@ -31,7 +31,8 @@ services:
       NODE_ENV: "production"
       COOKIE_SECURE: "true"
       ADMIN_USERNAME: "${ADMIN_USERNAME:?set ADMIN_USERNAME}"
-      ADMIN_PASSWORD_HASH_B64: "${ADMIN_PASSWORD_HASH_B64:?set ADMIN_PASSWORD_HASH_B64}"
+      ADMIN_INITIAL_PASSWORD: "${ADMIN_INITIAL_PASSWORD:-}"
+      ADMIN_PASSWORD_HASH_B64: "${ADMIN_PASSWORD_HASH_B64:-}"
       APP_ENCRYPTION_KEY: "${APP_ENCRYPTION_KEY:?set APP_ENCRYPTION_KEY}"
       DATABASE_URL: "postgresql://vaultmanager:${CONTROL_DB_PASSWORD:?set CONTROL_DB_PASSWORD}@control-db:5432/vaultmanager"
       BACKUP_STORAGE: "${BACKUP_STORAGE:-local}"
@@ -71,6 +72,8 @@ services:
     environment:
       NODE_ENV: "production"
       WORKER_ID: "vaultmanager-worker"
+      HOME: "/tmp"
+      SUPABASE_CONFIG_DIR: "/tmp/.supabase"
       DATABASE_URL: "postgresql://vaultmanager:${CONTROL_DB_PASSWORD:?set CONTROL_DB_PASSWORD}@control-db:5432/vaultmanager"
       APP_ENCRYPTION_KEY: "${APP_ENCRYPTION_KEY:?set APP_ENCRYPTION_KEY}"
       BACKUP_STORAGE: "${BACKUP_STORAGE:-local}"
