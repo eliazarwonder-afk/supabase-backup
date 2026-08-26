@@ -29,7 +29,7 @@ function verifyPassword(password) { const stored = String(process.env.ADMIN_PASS
 function parseCookies(req) { return Object.fromEntries((req.headers.cookie || '').split(';').filter(Boolean).map(x => { const i = x.indexOf('='); return [x.slice(0, i).trim(), decodeURIComponent(x.slice(i + 1))]; })); }
 function auth(req) { const token = parseCookies(req).vault_session, s = token && sessions.get(token); return s && s.expires > Date.now() ? { token, ...s } : null; }
 function send(res, status, value, headers = {}) { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers }); res.end(JSON.stringify(value)); }
-function staticFile(res, name, type) { res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store' }); res.end(fs.readFileSync(path.join(__dirname, 'public', name))); }
+function staticFile(res, name, type) { const content = fs.readFileSync(path.join(__dirname, 'public', name)); res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store' }); res.end(content); }
 function readBody(req) { return new Promise((resolve, reject) => { let raw = ''; req.on('data', c => { raw += c; if (raw.length > MAX_BODY) { reject(new Error('Request too large')); req.destroy(); } }); req.on('end', () => { try { resolve(raw ? JSON.parse(raw) : {}); } catch { reject(new Error('Invalid JSON')); } }); req.on('error', reject); }); }
 function validName(v) { return typeof v === 'string' && /^[A-Za-z0-9_-]{1,48}$/.test(v); }
 function validUrl(v) { try { const u = new URL(v); return ['postgres:', 'postgresql:'].includes(u.protocol) && u.hostname && u.pathname === '/postgres'; } catch { return false; } }
@@ -66,5 +66,5 @@ const server = http.createServer(async (req, res) => { try {
   if (req.method === 'POST' && (req.url.startsWith('/api/backup/') || req.url === '/api/restore')) { const b = await readBody(req), targetId = b.targetId || req.url.split('/').pop(), t = vault().targets.find(x => x.id === targetId), type = req.url === '/api/restore' ? 'restore' : 'backup'; if (!t) return send(res, 404, { error: 'Target not found' }); if (type === 'restore' && (!safeFolder(b.folder) || b.confirm !== 'RESTORE')) return send(res, 400, { error: 'Enter a valid backup folder and type RESTORE to confirm.' }); const job = { id: crypto.randomUUID(), type, targetId: t.id, status: 'queued', startedAt: new Date().toISOString(), ...(type === 'restore' ? { folder: b.folder } : {}) }; startJob(job, { url: decrypt(t.connection) }); return send(res, 202, { job }); }
   if (req.method === 'GET' && req.url.startsWith('/api/jobs/')) { const j = jobs.get(req.url.split('/').pop()); return j ? send(res, 200, { job: j }) : send(res, 404, { error: 'Job not found' }); }
   return send(res, 404, { error: 'Not found' });
-} catch (e) { console.error(e); return send(res, 500, { error: 'Internal server error' }); } });
+} catch (e) { console.error(e); if (!res.headersSent) return send(res, 500, { error: 'Internal server error' }); res.destroy(); } });
 server.listen(PORT, HOST, () => console.log(`Supabase VaultManager listening on ${HOST}:${PORT}`));

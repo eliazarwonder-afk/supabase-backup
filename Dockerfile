@@ -12,7 +12,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
     && rm /tmp/supabase.tgz /tmp/supabase.checksums \
     && useradd --system --uid 10001 --create-home vault
 WORKDIR /app
-COPY --chown=vault:vault package.json server.js public ./
+COPY --chown=vault:vault package.json server.js ./
+COPY --chown=vault:vault public ./public
 COPY --chown=vault:vault scripts ./scripts
 RUN mkdir -p /var/lib/vaultmanager/backups && chown -R vault:vault /var/lib/vaultmanager
 USER vault
