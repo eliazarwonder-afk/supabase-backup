@@ -7,7 +7,7 @@ Secure Coolify-friendly UI for the official Supabase three-file backup flow.
 1. Copy `.env.example` to `.env`, set `ADMIN_USERNAME`, a strong `ADMIN_INITIAL_PASSWORD`, and a random encryption key. The initial password is converted to bcrypt and stored in the control database on first successful login; for legacy deployments, `ADMIN_PASSWORD_HASH_B64` remains supported. For plain HTTP local development, add `COOKIE_SECURE=false` (production must use HTTPS).
 3. Start with `docker compose up --build` and open `http://localhost:3000`.
 
-The Compose stack includes an independent PostgreSQL control database and a separate `vaultmanager-worker` service. Set `CONTROL_DB_PASSWORD` and do not point `DATABASE_URL` at a target Supabase database. The web service queues backup runs; the worker claims them from PostgreSQL and executes the Supabase CLI.
+The Compose stack includes an independent PostgreSQL control database and a separate `vaultmanager-worker` service. Set `CONTROL_DB_PASSWORD` and do not point `DATABASE_URL` at a target Supabase database. New backup runs are dispatched to GitHub Actions; the worker handles scheduling, dispatching, lifecycle updates, and restores.
 
 The application accepts bcrypt hashes such as `$2a$12$...` and its own colon-separated scrypt hashes. `ADMIN_PASSWORD_HASH_B64` is a legacy bootstrap option; normal deployments should use `ADMIN_INITIAL_PASSWORD`, then remove it from Coolify after the first successful login. Password changes are performed in the Security screen and stored as bcrypt hashes.
 
@@ -24,6 +24,8 @@ Backups run in GitHub Actions, not inside the Coolify container. The Action uses
 3. Create a GitHub App and install it only on that repository. Give it **Actions: Read and write** and **Metadata: Read-only** repository permissions. Keep all other permissions disabled.
 4. In VaultManager, open **GitHub App**, enter the App ID, installation ID, owner, repository, workflow filename, and the downloaded RSA private-key PEM. Save it and press **Test**.
 5. Select local or S3 storage in VaultManager/Coolify. The current backup pipeline uses the configured `BACKUP_STORAGE` destination and verifies the S3 object with `head-object` before marking the run successful.
+
+For the automatic **Connect GitHub App through GitHub** button, configure `GITHUB_APP_ID`, `GITHUB_APP_SLUG`, and `GITHUB_APP_PRIVATE_KEY` in Coolify. Set the GitHub App **Setup URL** to `https://your-vaultmanager-domain.example/api/github/callback`. The user must already be signed in to VaultManager; GitHub handles approval and redirects back. VaultManager validates the signed state and installation through GitHub’s API, then stores the installation and first accessible repository without asking the user to paste IDs or keys.
 
 Pressing **Run backup** dispatches the workflow with a random, expiring, one-time runner token. The token is stored only as a SHA-256 hash in PostgreSQL. The Action uses it to fetch the target connection over HTTPS and upload the three files. The target URL, GitHub private key, and installation token are never written to logs or returned by the normal browser API.
 
