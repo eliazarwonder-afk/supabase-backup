@@ -1,0 +1,60 @@
+name: Supabase VaultManager backup
+
+on:
+  workflow_dispatch:
+    inputs:
+      runner_token:
+        description: One-time VaultManager runner token
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Install Supabase CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            "https://github.com/supabase/cli/releases/download/v2.115.0/supabase_2.115.0_linux_amd64.tar.gz" \
+            --output /tmp/supabase.tgz
+          tar -xzf /tmp/supabase.tgz -C /tmp supabase
+          sudo install -m 0755 /tmp/supabase /usr/local/bin/supabase
+
+      - name: Run official three-file dump
+        env:
+          VAULTMANAGER_URL: ${{ secrets.VAULTMANAGER_URL }}
+          RUNNER_TOKEN: ${{ inputs.runner_token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${VAULTMANAGER_URL}"
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          umask 077
+          curl --fail --silent --show-error --location \
+            --header "Authorization: Bearer ${RUNNER_TOKEN}" \
+            "${VAULTMANAGER_URL%/}/api/github-runs/config" > "${work}/config.json"
+          connection="$(jq -r '.connectionString' "${work}/config.json")"
+          test -n "${connection}" && test "${connection}" != "null"
+          cd "${work}"
+          supabase db dump --db-url "${connection}" -f roles.sql --role-only
+          supabase db dump --db-url "${connection}" -f schema.sql
+          supabase db dump --db-url "${connection}" -f data.sql --data-only --use-copy
+          for file in roles.sql schema.sql data.sql; do
+            checksum="$(sha256sum "${file}" | awk '{print $1}')"
+            curl --fail --silent --show-error --location --request PUT \
+              --header "Authorization: Bearer ${RUNNER_TOKEN}" \
+              --header "Content-Type: application/sql" \
+              --header "X-Artifact-SHA256: ${checksum}" \
+              --data-binary "@${file}" \
+              "${VAULTMANAGER_URL%/}/api/github-runs/artifacts/${file}"
+          done
+          curl --fail --silent --show-error --location --request POST \
+            --header "Authorization: Bearer ${RUNNER_TOKEN}" \
+            "${VAULTMANAGER_URL%/}/api/github-runs/complete"

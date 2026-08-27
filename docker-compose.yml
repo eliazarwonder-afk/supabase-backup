@@ -46,6 +46,7 @@ services:
       AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
       AWS_SESSION_TOKEN: "${AWS_SESSION_TOKEN:-}"
       NOTIFY_WEBHOOK_URL: "${NOTIFY_WEBHOOK_URL:-}"
+      VAULTMANAGER_URL: "${VAULTMANAGER_URL:-}"
     volumes:
       - vaultmanager_data:/var/lib/vaultmanager
     depends_on:
@@ -85,6 +86,7 @@ services:
       AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
       AWS_SESSION_TOKEN: "${AWS_SESSION_TOKEN:-}"
       NOTIFY_WEBHOOK_URL: "${NOTIFY_WEBHOOK_URL:-}"
+      VAULTMANAGER_URL: "${VAULTMANAGER_URL:-}"
     volumes:
       - vaultmanager_data:/var/lib/vaultmanager
     depends_on:

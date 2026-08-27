@@ -11,7 +11,25 @@ The Compose stack includes an independent PostgreSQL control database and a sepa
 
 The application accepts bcrypt hashes such as `$2a$12$...` and its own colon-separated scrypt hashes. `ADMIN_PASSWORD_HASH_B64` is a legacy bootstrap option; normal deployments should use `ADMIN_INITIAL_PASSWORD`, then remove it from Coolify after the first successful login. Password changes are performed in the Security screen and stored as bcrypt hashes.
 
-Connection strings are encrypted at rest with AES-256-GCM. They are never returned to the browser or logged. Backups are archived as `.tar.gz` files. Use `BACKUP_STORAGE=local` for the named `vaultmanager_data` volume, or `BACKUP_STORAGE=s3` with `S3_BUCKET`, `S3_REGION`, and AWS credentials for object storage. S3 downloads use 15-minute presigned URLs.
+Connection strings are encrypted at rest with AES-256-GCM. They are never returned to the browser or logged. Backups are archived as `.tar.gz` files. Use `BACKUP_STORAGE=local` for the named `vaultmanager_data` volume, or `BACKUP_STORAGE=s3` with `S3_BUCKET`, `S3_REGION`, and AWS credentials for object storage. S3 downloads use 15-minute presigned URLs. The official Supabase CLI dump workflow requires a Docker-compatible runtime because it runs a filtered `pg_dump` inside a Supabase Postgres image; the worker therefore fails clearly when Docker is unavailable instead of silently producing a generic dump.
+
+## GitHub Actions backup runner
+
+Backups run in GitHub Actions, not inside the Coolify container. The Action uses the official Supabase CLI and Docker-enabled GitHub-hosted runner to create `roles.sql`, `schema.sql`, and `data.sql`. It uploads each file directly to VaultManager; VaultManager creates and verifies the archive, then keeps it on the local volume or uploads it to the configured S3 storage.
+
+### One-time setup
+
+1. Copy [`github-workflow/supabase-backup.yml`](github-workflow/supabase-backup.yml) into the connected repository at `.github/workflows/supabase-backup.yml`.
+2. Add a repository secret named `VAULTMANAGER_URL`, containing the public HTTPS URL of this installation.
+3. Create a GitHub App and install it only on that repository. Give it **Actions: Read and write** and **Metadata: Read-only** repository permissions. Keep all other permissions disabled.
+4. In VaultManager, open **GitHub App**, enter the App ID, installation ID, owner, repository, workflow filename, and the downloaded RSA private-key PEM. Save it and press **Test**.
+5. Select local or S3 storage in VaultManager/Coolify. The current backup pipeline uses the configured `BACKUP_STORAGE` destination and verifies the S3 object with `head-object` before marking the run successful.
+
+Pressing **Run backup** dispatches the workflow with a random, expiring, one-time runner token. The token is stored only as a SHA-256 hash in PostgreSQL. The Action uses it to fetch the target connection over HTTPS and upload the three files. The target URL, GitHub private key, and installation token are never written to logs or returned by the normal browser API.
+
+The included workflow pins Supabase CLI `2.115.0`. Update that version deliberately after testing in a non-production repository; do not use an unpinned `latest` download in production.
+
+Keep `APP_ENCRYPTION_KEY` stable. If it is changed, existing target connection strings, storage credentials, notification credentials, and GitHub private keys cannot be decrypted. Rotate the GitHub private key in GitHub and replace the stored connection if it is exposed. Never commit the PEM or paste it into logs.
 
 ## Scheduled backups and history
 
