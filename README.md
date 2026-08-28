@@ -21,8 +21,8 @@ Backups run in GitHub Actions, not inside the Coolify container. The Action uses
 
 1. Copy [`github-workflow/supabase-backup.yml`](github-workflow/supabase-backup.yml) into the connected repository at `.github/workflows/supabase-backup.yml`.
 2. Add a repository secret named `VAULTMANAGER_URL`, containing the public HTTPS URL of this installation.
-3. Create a GitHub App and install it only on that repository. Give it **Actions: Read and write** and **Metadata: Read-only** repository permissions. Keep all other permissions disabled.
-4. In VaultManager, open **GitHub App**, enter the App ID, installation ID, owner, repository, workflow filename, and the downloaded RSA private-key PEM. Save it and press **Test**.
+3. Open **GitHub App** in VaultManager and choose **Create and connect GitHub App**. GitHub creates the App through the manifest flow, then asks you to install it. Select only the repository used for the workflow and approve the requested permissions.
+4. Return to VaultManager and use the built-in **Test** action. No App ID, installation ID, private key, or GitHub environment variable is required.
 5. Select local or S3 storage in VaultManager/Coolify. The current backup pipeline uses the configured `BACKUP_STORAGE` destination and verifies the S3 object with `head-object` before marking the run successful.
 
 For the automatic **Create and connect GitHub App** button, only configure `VAULTMANAGER_URL` in Coolify. VaultManager sends GitHub the manifest and callback/setup URLs automatically. GitHub creates the app, returns its credentials to the server, and then asks you to approve repository installation. The user must already be signed in to VaultManager; VaultManager validates the signed state and installation through GitHub’s API, then stores the generated private key encrypted in PostgreSQL.
@@ -45,6 +45,6 @@ Set `NOTIFY_WEBHOOK_URL` in Coolify to receive non-secret JSON notifications for
 
 Deploy this repository as a Docker Compose resource. Set the three required environment variables in Coolify, expose port `3000`, and attach HTTPS. For a Supabase database in another service, use its private network hostname in the PostgreSQL URL. Do not expose PostgreSQL publicly just for this app.
 
-Do not paste the bcrypt hash or other secrets into `docker-compose.yml`. Set `ADMIN_PASSWORD_HASH_B64` in Coolify's Environment Variables section. This prevents `$2a$12$...` from being parsed as YAML or Compose interpolation. After changing any secret, redeploy the resource so both the web and worker containers receive the same values.
+For a new deployment, set `ADMIN_INITIAL_PASSWORD` in Coolify and remove it after the first successful login. The application hashes it into the control database. Existing deployments may use `ADMIN_PASSWORD_HASH_B64`; if a hash is used, base64-encode the complete bcrypt string before saving it in Coolify so Compose cannot interpret its `$` characters. After changing any secret, redeploy the resource so both the web and worker containers receive the same values.
 
 Restore requires the exact backup folder name and typing `RESTORE`. Restore operations are queued in PostgreSQL and executed by the worker, so a web-container restart does not silently interrupt them. The server validates target names and folder names, and child processes receive argument arrays, never a shell command string. Use HTTPS in Coolify and never commit `.env` or `data/`.
